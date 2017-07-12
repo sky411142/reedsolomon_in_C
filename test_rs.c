@@ -19,7 +19,7 @@ void print_buf(gf* buf, char *fmt, size_t len) {
     while(i < len) {
         printf(fmt, buf[i]);
         i++;
-        if((i % 16) == 0) {
+        if((i % 50) == 0) {
             printf("\n");
         }
     }
@@ -657,10 +657,11 @@ void test_003(void) {
     int nr_fec_blocks;
 
     int i;
+    printf("nrDataBlocks [%d] sizeof(text) [%d] sizeof(char) [%d]\n",nrDataBlocks,sizeof(text),sizeof(char));
     reed_solomon* rs = reed_solomon_new(nrDataBlocks, nrFecBlocks);
 
     printf("%s:\n", __FUNCTION__);
-    //printf("text size=%d\n", (int)(sizeof(text)/sizeof(char) - 1) );
+    printf("text size=%d\n", (int)(sizeof(text)/sizeof(char) - 1) );
 
     for(i = 0; i < nrDataBlocks; i++) {
         data_blocks[i] = (unsigned char*)&text[i*block_size];
@@ -668,13 +669,24 @@ void test_003(void) {
 
     memset(output, 0, sizeof(output));
     memcpy(output, text, nrDataBlocks*block_size);
-    //print_matrix1((gf*)output, nrDataBlocks + nrFecBlocks, block_size);
+    print_matrix1((gf*)output, nrDataBlocks + nrFecBlocks, block_size);
     for(i = 0; i < nrFecBlocks; i++) {
         fec_blocks[i] = (unsigned char*)&output[i*block_size + nrDataBlocks*block_size];
+        printf("fec_blocks[%d] = [%s]\n",i,fec_blocks[i]);
     }
+
+    for(i = 0; i < nrDataBlocks; i++) {
+        printf("1.data_blocks[%d] = [%s]\n",i,data_blocks[i]);
+    }
+
+    printf("1-1.data_blocks = [%s]\n",data_blocks[0][1]);
     reed_solomon_encode(rs, data_blocks, fec_blocks, block_size);
-    printf("golang output(example/test_rs.go):\n [[104 101] [108 108] [111 32] [119 111] [114 108] [100 32] [104 101] [108 108] [111 32] [119 111] [114 108] [100 32] \n[157 178] [83 31] [48 240] [254 93] [31 89] [151 184]]\n");
-    printf("c verion output:\n");
+    for(i = 0; i < nrDataBlocks; i++) {
+        printf("2.data_blocks[%d] = [%s]\n",i,data_blocks[i]);
+    }
+
+    //printf("golang output(example/test_rs.go):\n [[104 101] [108 108] [111 32] [119 111] [114 108] [100 32] [104 101] [108 108] [111 32] [119 111] [114 108] [100 32] \n[157 178] [83 31] [48 240] [254 93] [31 89] [151 184]]\n");
+    //printf("c verion output:\n");
     print_buf((gf*)output, "%d ", nrFecBlocks*block_size + nrDataBlocks*block_size);
     //print_matrix1((gf*)output, nrDataBlocks + nrFecBlocks, block_size);
 
@@ -682,16 +694,16 @@ void test_003(void) {
     text[1*block_size] = 'x';
     text[10*block_size+1] = 'y';
     text[4*block_size] = 'z';
-    erased_blocks[0] = 4;
-    erased_blocks[1] = 1;
+    erased_blocks[0] = 1;
+    erased_blocks[1] = 4;
     erased_blocks[2] = 10;
 
-    fec_block_nos[0] = 1;
-    fec_block_nos[1] = 3;
-    fec_block_nos[2] = 5;
-    dec_fec_blocks[0] = fec_blocks[1];
-    dec_fec_blocks[1] = fec_blocks[3];
-    dec_fec_blocks[2] = fec_blocks[5];
+    fec_block_nos[0] = 3;
+    fec_block_nos[1] = 2;
+    fec_block_nos[2] = 4;
+    dec_fec_blocks[0] = fec_blocks[3];
+    dec_fec_blocks[1] = fec_blocks[2];
+    dec_fec_blocks[2] = fec_blocks[4];
     nr_fec_blocks = 3;
 
     printf("erased:%s\n", text);
@@ -708,7 +720,7 @@ void test_004(void) {
     //char text[] = "hello world hello world ";
     int dataShards = 30;
     int parityShards = 21;
-    int blockSize = 280;
+    int blockSize = 1280;
     struct timeval tv;
     int i, j, n, seed, size, nrShards, nrBlocks, nrFecBlocks;
     unsigned char *origin, *data;
@@ -723,7 +735,7 @@ void test_004(void) {
     fec_init();
 
     //size = sizeof(text)/sizeof(char)-1;
-    size = 1024*1024;
+    size = 1280*10;
     origin = malloc(size);
     //memcpy(origin, text, size);
     for(i = 0; i < size; i++) {
@@ -739,7 +751,9 @@ void test_004(void) {
     memcpy(data, origin, size);
     memset(data + size, 0, nrShards*blockSize - size);
     printf("nrBlocks=%d nrFecBlocks=%d nrShards=%d n=%d left=%d\n", nrBlocks, nrFecBlocks, nrShards, n, nrShards*blockSize - size);
+    //printf("origin:\n");
     //print_buf(origin, "%d ", size);
+    //printf("data:\n");
     //print_buf(data, "%d ", nrShards*blockSize);
 
     data_blocks = (unsigned char**)malloc( nrShards * sizeof(unsigned char**) );
@@ -765,23 +779,23 @@ void test_004(void) {
     for(i = 0; i < n-2; i++) {
         j = random() % (nrBlocks-1);
         //j = es[i];
-        memset(data + j*blockSize, 137, blockSize);
+        memset(data + j*blockSize, 0, blockSize);
         zilch[j] = 1; //erased!
-        printf("erased %d\n", j);
+        printf("1.erased %d\n", j);
     }
     if(nrFecBlocks > 2) {
         for(i = 0; i < 2; i++) {
             j = nrBlocks + (random() % nrFecBlocks);
-            memset(data + j*blockSize, 139, blockSize);
+            memset(data + j*blockSize, 0, blockSize);
             zilch[j] = 1;
-            printf("erased %d\n", j);
+            printf("2.erased %d\n", j);
         }
     }
 
     reed_solomon_reconstruct(rs, data_blocks, zilch, nrShards, blockSize);
     i = memcmp(origin, data, size);
-    //print_buf(origin, "%d ", nrBlocks);
-    //print_buf(data, "%d ", nrBlocks);
+    print_buf(origin, "%d ", nrBlocks);
+    print_buf(data_blocks, "%d ", nrBlocks);
     printf("rlt=%d\n", i);
     assert(0 == i);
 
@@ -792,9 +806,385 @@ void test_004(void) {
     reed_solomon_release(rs);
 }
 
+void test_005(void) {
+    char text[2001], output[100*2001];
+    int block_size = 2001;
+    int nrDataBlocks = 20;
+    unsigned char* data_blocks[nrDataBlocks];
+    unsigned char* fec_blocks[10];
+
+
+    //decode
+    unsigned int fec_block_nos[128], erased_blocks[128];
+    unsigned char* dec_fec_blocks[128];
+    int nr_fec_blocks;
+
+    int i;
+    reed_solomon* rs = reed_solomon_new(nrDataBlocks, 10);
+    //create each packet buffer: size = 1280
+    //create 10 packets
+    memset(output, 0, sizeof(output));
+    for(i=0;i<nrDataBlocks;i++){
+        if(i%5==0){
+        memset(output+i*block_size,'1',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==1){
+        memset(output+i*block_size,'2',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==2){
+        memset(output+i*block_size,'3',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==3){
+        memset(output+i*block_size,'4',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==4){
+        memset(output+i*block_size,'5',1000);
+        memset(output+(i+1)*1000-1,0,1);
+        }
+
+    }
+    //printf("0.encode data_blocks[%d] = [%s]\n",i,output);
+
+    for(i = 0; i < nrDataBlocks; i++) {
+        data_blocks[i] = (unsigned char*)&output[i*block_size];
+        //printf("1.encode data_blocks[%d] = [%s]\n",i,data_blocks[i]);
+    }
+
+    for(i = 0; i < 10; i++) {
+        fec_blocks[i] = (unsigned char*)&output[i*block_size + nrDataBlocks*block_size];
+        //printf("fec_blocks[%d] = [%s]\n",i,fec_blocks[i]);
+    }
+
+printf("before encode\n");
+    reed_solomon_encode(rs, data_blocks, fec_blocks, block_size);
+printf("after encode\n");
+/*
+    for(i = 0; i < nrDataBlocks; i++) {
+        printf("encode 2 data_blocks[%d] = [%s]\n",i,data_blocks[i]);
+    }
+*/
+    for(i = 0; i < 10; i++) {
+        printf("encode 2 fec_blocks[%d] = [%s]\n",i,fec_blocks[i]);
+    }
+
+    //print_matrix1((gf*)output, nrDataBlocks + nrFecBlocks, block_size);
+    //char testdata2[]="";
+    //decode
+
+    memset(data_blocks[4],0,2000);
+    memset(data_blocks[5],0,2000);
+    memset(data_blocks[1],0,2000);
+    memset(data_blocks[0],0,2000);
+    memset(data_blocks[14],0,2000);
+    //memset(data_blocks[18],0,2000);
+    memset(data_blocks[11],0,2000);
+    memset(data_blocks[13],0,2000);
+    //memset(data_blocks[19],0,2000);
+    memset(data_blocks[17],0,2000);
+    printf("\n\n\n\n");
+    for(i = 0; i < nrDataBlocks; i++) {
+        printf("after erased data_blocks[%d] = [%s]\n",i,data_blocks[i]);
+    }
+    
+
+    erased_blocks[0] = 0;
+    erased_blocks[1] = 1;
+    erased_blocks[2] = 4;
+    erased_blocks[3] = 5;
+    erased_blocks[4] = 11;
+    erased_blocks[5] = 13;
+    erased_blocks[6] = 14;
+    erased_blocks[7] = 17;
+    //erased_blocks[8] = 18;
+    //erased_blocks[9] = 19;
+
+
+
+    fec_block_nos[0] = 9;
+    fec_block_nos[1] = 8;
+    fec_block_nos[2] = 7;
+    fec_block_nos[3] = 6;
+    fec_block_nos[4] = 4;
+    fec_block_nos[5] = 5;
+    fec_block_nos[6] = 3;
+    fec_block_nos[7] = 2;
+    //fec_block_nos[8] = 1;
+    //fec_block_nos[9] = 0;
+    dec_fec_blocks[0] = fec_blocks[9];
+    dec_fec_blocks[1] = fec_blocks[8];
+    dec_fec_blocks[2] = fec_blocks[7];
+    dec_fec_blocks[3] = fec_blocks[6];
+    dec_fec_blocks[4] = fec_blocks[4];
+    dec_fec_blocks[5] = fec_blocks[5];
+    dec_fec_blocks[6] = fec_blocks[3];
+    dec_fec_blocks[7] = fec_blocks[2];
+    //dec_fec_blocks[8] = fec_blocks[1];
+    //dec_fec_blocks[9] = fec_blocks[0];
+    nr_fec_blocks = 8;
+
+    printf("\n\n\n\n");
+
+    reed_solomon_decode(rs, data_blocks, block_size, dec_fec_blocks,
+            fec_block_nos, erased_blocks, nr_fec_blocks);
+
+    //printf("fixed:%s\n", output);
+    for(i = 0; i < nrDataBlocks; i++) {
+        printf("after decode data_blocks[%d] = [%s]\n",i,data_blocks[i]);
+    }
+
+    reed_solomon_release(rs);
+
+}
+
+
+//AVAPI-FEC api 
+char output[100*2001];
+typedef struct _datablock
+{
+    struct _datablock *p_next;
+    struct _datablock *p_right;
+    struct _datablock *p_left;
+
+    int    Serial_No;      //packet no in this frame
+    int    data_size;
+    int    isLoss;
+    unsigned char        *p_buffer;
+
+}block_t;
+
+typedef struct _datablock_fifo
+{
+
+    block_t          *p_first;  
+    block_t          *p_last;
+
+    int    treeType;
+    int     i_depth;
+    int     i_Blocksize;
+    int     i_totalBlocks;
+}datablock_fifo;
+
+void AVAPI_FEC_Encode(datablock_fifo* data_blocks, datablock_fifo* fecdata_blocks)
+{
+    block_t *blockbuff         = data_blocks->p_first;
+    block_t *fecdata_blockbuff = fecdata_blocks->p_first;
+
+    int data_blocks_size       = data_blocks->i_depth;
+    int fecdata_blocks_size    = fecdata_blocks->i_depth;
+    int blocksize              = data_blocks->i_Blocksize;
+    int i =0;
+
+    unsigned char* _pdata_blocks[20];
+    unsigned char* _pfecdata_blocks[10];
+
+    for(i = 0; i < data_blocks_size; i++)
+    {
+        if(blockbuff != NULL)
+        {    
+            _pdata_blocks[i] = blockbuff->p_buffer;
+            blockbuff = blockbuff->p_next;
+        }
+    }
+
+    for(i = 0; i < fecdata_blocks_size; i++)
+    {
+        if(fecdata_blockbuff != NULL)
+        {    
+            _pfecdata_blocks[i] = fecdata_blockbuff->p_buffer;
+            fecdata_blockbuff = fecdata_blockbuff->p_next;
+        }
+    }
+
+    reed_solomon* rs = reed_solomon_new(data_blocks_size, fecdata_blocks_size);
+    reed_solomon_encode(rs, _pdata_blocks, _pfecdata_blocks, blocksize);
+    reed_solomon_release(rs);
+}
+
+
+
+void AVAPI_FEC_Decode(datablock_fifo* data_blocks, datablock_fifo* fecdata_blocks)
+{
+
+    block_t *data_blockbuff = data_blocks->p_first;
+    block_t *fecdata_blockbuff = fecdata_blocks->p_first;
+
+    int data_blocks_size     = data_blocks->i_depth;
+    int defec_blocks_size    = fecdata_blocks->i_depth;
+    int total_blocks_size    = data_blocks->i_totalBlocks;
+    int total_fecblocks_size = fecdata_blocks->i_totalBlocks;
+    int block_size           = data_blocks->i_Blocksize;
+    int i =0,j=0;
+
+    unsigned char* _pdata_blocks[data_blocks_size];
+    unsigned char* _pdec_fec_blocks[defec_blocks_size];
+    unsigned int   fec_block_nos[defec_blocks_size], erased_blocks[20];
+
+    for(i = 0;i < total_blocks_size ; i++)
+    {
+        if(data_blockbuff->isLoss)
+        {    
+            erased_blocks[j] = data_blockbuff->Serial_No;
+            j++;
+        }
+
+        _pdata_blocks[i] = data_blockbuff->p_buffer;
+        data_blockbuff = data_blockbuff->p_next;
+ 
+    }    
+
+    for(i = 0;i < defec_blocks_size; i++)
+    {
+
+        fec_block_nos[i] = fecdata_blockbuff->Serial_No;
+        _pdec_fec_blocks[i] = fecdata_blockbuff->p_buffer;
+
+        fecdata_blockbuff = fecdata_blockbuff->p_next;
+    }   
+
+    reed_solomon* rs = reed_solomon_new(total_blocks_size, total_fecblocks_size);
+    reed_solomon_decode(rs, _pdata_blocks, block_size, _pdec_fec_blocks, fec_block_nos, erased_blocks, defec_blocks_size);
+    reed_solomon_release(rs);
+
+} 
+
+void test_006(void) {
+
+    
+    int block_size = 2001;
+    int nrDataBlocks = 20;
+    int nrfecDataBlocks = 10;
+    int i =0;
+
+
+    memset(output, 0, sizeof(output));
+    for(i=0;i<nrDataBlocks;i++)
+    {
+        if(i%5==0){
+        memset(output+i*block_size,'1',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==1){
+        memset(output+i*block_size,'2',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==2){
+        memset(output+i*block_size,'3',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==3){
+        memset(output+i*block_size,'4',block_size);
+        memset(output+(i+1)*block_size-1,0,1);
+        }
+        else if(i%5==4){
+        memset(output+i*block_size,'5',1000);
+        memset(output+(i+1)*1000-1,0,1);
+        }
+    }
+
+
+    datablock_fifo *data_blocks = malloc(sizeof(datablock_fifo));
+    datablock_fifo *fecdata_locks = malloc(sizeof(fecdata_locks));
+
+/***************data_blocks init parameter and data *******************/    
+
+    for(i = 0; i < nrDataBlocks; i++)
+    {
+        block_t *datablock = malloc(sizeof(block_t));
+
+        datablock->Serial_No = i;
+        datablock->data_size = 2001;
+        datablock->p_buffer = (unsigned char *)&output[i*block_size];
+
+        if(i == 0)
+        {    
+            data_blocks->p_first = datablock;
+            data_blocks->p_last = datablock;
+        }
+        else if(i > 0 && i < nrDataBlocks)
+        {
+            block_t *p_last = data_blocks->p_last;
+            p_last->p_next = datablock;
+            data_blocks->p_last = datablock;
+        } 
+        else
+        {
+            data_blocks->p_last = datablock;
+            datablock->p_next = NULL;
+        }
+    }
+
+    /******check block is ok********/
+    block_t *datablocktest = data_blocks->p_first;
+
+    for(i = 0; i < nrDataBlocks; i++)
+    {
+        if(datablocktest != NULL)
+        {
+            printf("datablock[%d] = [%s]\n",i,datablocktest->p_buffer);
+            datablocktest = datablocktest->p_next;
+        } 
+    }
+
+/***************fecdata_locks init parameter and data *******************/ 
+
+    for(i = 0; i < nrfecDataBlocks; i++)
+    {
+        block_t *fecdatablock = malloc(sizeof(block_t));
+
+        fecdatablock->Serial_No = i;
+        fecdatablock->data_size = 2001;
+        fecdatablock->p_buffer = (unsigned char *)&output[i*block_size + nrDataBlocks*block_size];
+
+        if(i == 0)
+        {    
+            fecdata_locks->p_first = fecdatablock;
+            fecdata_locks->p_last = fecdatablock;
+        }
+        else if(i > 0 && i < nrfecDataBlocks)
+        {
+            block_t *p_last = fecdata_locks->p_last;
+            p_last->p_next = fecdatablock;
+            fecdata_locks->p_last = fecdatablock;
+        } 
+        else
+        {
+            fecdata_locks->p_last = fecdatablock;
+            fecdatablock->p_next = NULL;
+        }
+    }
+
+    /******check fecblock is ok********/
+   
+
+    data_blocks->i_depth = nrDataBlocks;
+    data_blocks->i_Blocksize = block_size;
+    fecdata_locks->i_depth = nrfecDataBlocks;
+    fecdata_locks->i_totalBlocks = nrfecDataBlocks;
+    fecdata_locks->i_Blocksize = block_size;
+
+    AVAPI_FEC_Encode(data_blocks,fecdata_locks);
+
+    block_t *fecdatablocktest = fecdata_locks->p_first;
+    for(i = 0; i < nrfecDataBlocks; i++)
+    {
+        if(fecdatablocktest != NULL)
+        {
+            printf("fecdatablock[%d] = [%s]\n",i,fecdatablocktest->p_buffer);
+            fecdatablocktest = fecdatablocktest->p_next;
+        } 
+    }
+
+    AVAPI_FEC_Decode(data_blocks,fecdata_locks);
+
+}
+
 int main(void) {
     fec_init();
-
+/*
     test_galois();
     test_sub_matrix();
     test_multiply();
@@ -803,14 +1193,16 @@ int main(void) {
     test_one_decoding();
     test_encoding();
     test_reconstruct();
+*/    
     printf("reach here means test all ok\n");
 
-    benchmarkEncode();
+    //benchmarkEncode();
 
     //test_001();
     //test_002();
-    test_003();
-    //test_004();
+    //test_003();
+    //test_005();
+    test_006();
 
     return 0;
 }
